@@ -101,6 +101,7 @@
 #include <linux/init_syscalls.h>
 #include <linux/stackdepot.h>
 #include <linux/randomize_kstack.h>
+#include <linux/hpt_area.h>
 #include <net/net_namespace.h>
 
 #include <asm/io.h>
@@ -995,6 +996,10 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
+
+	#ifdef CONFIG_HPT_AREA
+	init_hpt_area_and_bitmap();
+	#endif
 
 	ftrace_init();
 

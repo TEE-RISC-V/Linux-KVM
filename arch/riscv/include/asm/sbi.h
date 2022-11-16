@@ -42,7 +42,8 @@ enum sbi_ext_id {
 };
 
 enum sbi_ext_sm_fid {
-	SBI_EXT_SM_SET_SHARED = 0
+	SBI_EXT_SM_SET_SHARED = 0,
+	SBI_EXT_SM_BITMAP_AND_HPT_INIT,
 };
 
 enum sbi_ext_base_fid {

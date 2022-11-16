@@ -157,6 +157,10 @@ config RISCV_SBI
 	depends on !RISCV_M_MODE
 	default y
 
+config HPT_AREA
+  	bool
+	default y
+
 config MMU
 	bool "MMU-based Paged Memory Management Support"
 	default y

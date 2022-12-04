@@ -30,7 +30,6 @@ enum sbi_ext_id {
 	SBI_EXT_HSM = 0x48534D,
 	SBI_EXT_SRST = 0x53525354,
 	SBI_EXT_PMU = 0x504D55,
-	SBI_EXT_SM = 0x8000000,
 
 	/* Experimentals extensions must lie within this range */
 	SBI_EXT_EXPERIMENTAL_START = 0x08000000,
@@ -39,11 +38,6 @@ enum sbi_ext_id {
 	/* Vendor extensions must lie within this range */
 	SBI_EXT_VENDOR_START = 0x09000000,
 	SBI_EXT_VENDOR_END = 0x09FFFFFF,
-};
-
-enum sbi_ext_sm_fid {
-	SBI_EXT_SM_SET_SHARED = 0,
-	SBI_EXT_SM_BITMAP_AND_HPT_INIT,
 };
 
 enum sbi_ext_base_fid {

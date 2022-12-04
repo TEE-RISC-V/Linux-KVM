@@ -25,6 +25,10 @@
 #include "internal.h"
 #include "swap.h"
 
+#ifdef CONFIG_HPT_AREA
+#include <asm/pgalloc.h>
+#endif
+
 /*
  * swapper_space is a fiction, retained to simplify the path through
  * vmscan's shrink_page_list.
@@ -311,7 +315,17 @@ void free_pages_and_swap_cache(struct page **pages, int nr)
 	lru_add_drain();
 	for (i = 0; i < nr; i++)
 		free_swap_cache(pagep[i]);
+#ifdef CONFIG_HPT_AREA
+	// Remove the release_page, explicitly free the pte page in the free_pte_range()
+	for (i = 0; i < nr; i++) {
+		if (check_pte(NULL, pagep[i]) == -1)
+			release_pages(pagep + i, 1);
+		else
+			pte_free_no_dtor(NULL, pagep[i]);
+	}
+#else
 	release_pages(pagep, nr);
+#endif
 }
 
 static inline bool swap_use_vma_readahead(void)

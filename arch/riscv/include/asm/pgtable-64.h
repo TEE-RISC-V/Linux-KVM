@@ -10,6 +10,10 @@
 #include <linux/const.h>
 #include <asm/errata_list.h>
 
+#ifdef CONFIG_HPT_AREA
+#include <asm/sbi-sm.h>
+#endif
+
 extern bool pgtable_l4_enabled;
 extern bool pgtable_l5_enabled;
 
@@ -158,10 +162,26 @@ static inline int pud_user(pud_t pud)
 	return pud_val(pud) & _PAGE_USER;
 }
 
+#ifdef CONFIG_HPT_AREA
+static inline void set_pud(pud_t *pudp, pud_t pud)
+{
+	long error, value;
+	sbi_sm_ecall(&error, &value, SBI_EXT_SM_SET_PTE,
+		     SBI_EXT_SM_SET_PTE_SET_ONE, __pa(pudp), pud_val(pud), 0, 0,
+		     0);
+	if (unlikely(error || value)) {
+		panic("set_pud: failed to set pte(error: %ld, value: %ld)\n",
+		      error, value);
+		while (1) {
+		}
+	}
+}
+#else
 static inline void set_pud(pud_t *pudp, pud_t pud)
 {
 	*pudp = pud;
 }
+#endif
 
 static inline void pud_clear(pud_t *pudp)
 {

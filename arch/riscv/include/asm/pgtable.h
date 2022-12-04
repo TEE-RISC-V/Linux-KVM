@@ -11,6 +11,10 @@
 
 #include <asm/pgtable-bits.h>
 
+#ifdef CONFIG_HPT_AREA
+#include <asm/sbi-sm.h>
+#endif
+
 #ifndef CONFIG_MMU
 #define KERNEL_LINK_ADDR	PAGE_OFFSET
 #define KERN_VIRT_SIZE		(UL(-1))
@@ -220,10 +224,26 @@ static inline int pmd_leaf(pmd_t pmd)
 	return pmd_present(pmd) && (pmd_val(pmd) & _PAGE_LEAF);
 }
 
+#ifdef CONFIG_HPT_AREA
+static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
+{
+	long error, value;
+	sbi_sm_ecall(&error, &value, SBI_EXT_SM_SET_PTE,
+		     SBI_EXT_SM_SET_PTE_SET_ONE, __pa(pmdp), pmd_val(pmd), 0, 0,
+		     0);
+	if (unlikely(error || value)) {
+		panic("set_pmd: failed to set pte(error: %ld, value: %ld)\n",
+		      error, value);
+		while (1) {
+		}
+	}
+}
+#else
 static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
 	*pmdp = pmd;
 }
+#endif
 
 static inline void pmd_clear(pmd_t *pmdp)
 {
@@ -437,10 +457,26 @@ static inline int pte_same(pte_t pte_a, pte_t pte_b)
  * a page table are directly modified.  Thus, the following hook is
  * made available.
  */
+#ifdef CONFIG_HPT_AREA
+static inline void set_pte(pte_t *ptep, pte_t pteval)
+{
+	long error, value;
+	sbi_sm_ecall(&error, &value, SBI_EXT_SM_SET_PTE,
+		     SBI_EXT_SM_SET_PTE_SET_ONE, __pa(ptep), pte_val(pteval), 0,
+		     0, 0);
+	if (unlikely(error || value)) {
+		panic("set_pte: failed to set pte(error: %ld, value: %ld)\n",
+		      error, value);
+		while (1) {
+		}
+	}
+}
+#else
 static inline void set_pte(pte_t *ptep, pte_t pteval)
 {
 	*ptep = pteval;
 }
+#endif
 
 void flush_icache_pte(pte_t pte);
 

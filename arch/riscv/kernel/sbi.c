@@ -10,6 +10,7 @@
 #include <linux/pm.h>
 #include <linux/reboot.h>
 #include <asm/sbi.h>
+#include <asm/sbi-sm.h>
 #include <asm/smp.h>
 
 /* default SBI version is 0.1 */

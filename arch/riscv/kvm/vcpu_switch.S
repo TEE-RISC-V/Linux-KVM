@@ -220,6 +220,15 @@ ENTRY(__kvm_riscv_sm_prepare_cpu)
 	ret
 ENDPROC(__kvm_riscv_sm_prepare_cpu)
 
+ENTRY(__kvm_riscv_sm_preserve_cpu)
+	li a7, SBI_EXT_SM
+	li a6, SBI_EXT_SM_PRESERVE_CPU
+
+	ecall
+
+	ret
+ENDPROC(__kvm_riscv_sm_preserve_cpu)
+
 ENTRY(__kvm_riscv_unpriv_trap)
 	/*
 	 * We assume that faulting unpriv load/store instruction is

@@ -10,6 +10,7 @@
 #include <asm/asm.h>
 #include <asm/asm-offsets.h>
 #include <asm/csr.h>
+#include <asm/sm_const.h>
 
 	.text
 	.altmacro
@@ -209,6 +210,15 @@ __kvm_switch_return:
 	/* Return to C code */
 	ret
 ENDPROC(__kvm_riscv_switch_to)
+
+ENTRY(__kvm_riscv_sm_prepare_cpu)
+	li a7, SBI_EXT_SM
+	li a6, SBI_EXT_SM_PREPARE_CPU
+
+	ecall
+
+	ret
+ENDPROC(__kvm_riscv_sm_prepare_cpu)
 
 ENTRY(__kvm_riscv_unpriv_trap)
 	/*

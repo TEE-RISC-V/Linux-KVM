@@ -1033,6 +1033,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 		guest_timing_enter_irqoff();
 
+		__kvm_riscv_sm_prepare_cpu(vcpu->cpu, vcpu->vcpu_idx);
 		kvm_riscv_vcpu_enter_exit(vcpu);
 
 		vcpu->mode = OUTSIDE_GUEST_MODE;

@@ -228,6 +228,8 @@ struct kvm_vcpu_arch {
 
 	/* Don't run the VCPU (blocked) */
 	bool pause;
+
+	bool last_exit_interrupt;
 };
 
 static inline void kvm_arch_hardware_unsetup(void) {}

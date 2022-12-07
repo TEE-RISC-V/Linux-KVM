@@ -943,6 +943,9 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 	struct kvm_cpu_trap trap;
 	struct kvm_run *run = vcpu->run;
 
+	bool ran_before = (vcpu->arch.ran_atleast_once == true);
+	bool last_exit_interrupt = vcpu->arch.last_exit_interrupt;
+
 	/* Mark this VCPU ran at least once */
 	vcpu->arch.ran_atleast_once = true;
 
@@ -1033,9 +1036,11 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 		guest_timing_enter_irqoff();
 
-		__kvm_riscv_sm_prepare_cpu(vcpu->cpu, vcpu->vcpu_idx);
+		if (ran_before && !last_exit_interrupt) {
+			__kvm_riscv_sm_prepare_cpu(vcpu->cpu, vcpu->vcpu_idx);
+		}
+		
 		kvm_riscv_vcpu_enter_exit(vcpu);
-		__kvm_riscv_sm_preserve_cpu(vcpu->cpu, vcpu->vcpu_idx);
 
 		vcpu->mode = OUTSIDE_GUEST_MODE;
 		vcpu->stat.exits++;
@@ -1050,6 +1055,15 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		trap.stval = csr_read(CSR_STVAL);
 		trap.htval = csr_read(CSR_HTVAL);
 		trap.htinst = csr_read(CSR_HTINST);
+
+		last_exit_interrupt = trap.scause & CAUSE_IRQ_FLAG;
+
+		if (!last_exit_interrupt) {
+			// TODO: pass in proper arguments for multiple VM case
+			
+			// kvm_info("HELLO %d %d\n", vcpu->cpu, vcpu->vcpu_idx);
+			__kvm_riscv_sm_preserve_cpu(vcpu->cpu, vcpu->vcpu_idx);
+		}
 
 		/* Syncup interrupts state with HW */
 		kvm_riscv_vcpu_sync_interrupts(vcpu);
@@ -1078,6 +1092,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		kvm_vcpu_srcu_read_lock(vcpu);
 
 		ret = kvm_riscv_vcpu_exit(vcpu, run, &trap);
+
+		vcpu->arch.last_exit_interrupt = last_exit_interrupt;
 	}
 
 	kvm_sigset_deactivate(vcpu);

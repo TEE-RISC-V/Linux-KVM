@@ -943,6 +943,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 	struct kvm_cpu_trap trap;
 	struct kvm_run *run = vcpu->run;
 
+	
+
 	bool ran_before = vcpu->arch.ran_atleast_once;
 	bool last_exit_interrupt = vcpu->arch.last_exit_interrupt;
 

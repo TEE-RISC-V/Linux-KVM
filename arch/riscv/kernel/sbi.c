@@ -11,6 +11,7 @@
 #include <linux/reboot.h>
 #include <asm/sbi.h>
 #include <asm/smp.h>
+#include <asm/sm_const.h>
 
 /* default SBI version is 0.1 */
 unsigned long sbi_spec_version __ro_after_init = SBI_SPEC_VERSION_DEFAULT;
@@ -695,4 +696,10 @@ void __init sbi_init(void)
 	}
 
 	riscv_set_ipi_ops(&sbi_ipi_ops);
+
+	if (sbi_probe_extension(SBI_EXT_SM) > 0) {
+		pr_info("SBI Secure Monitor extension detected\n");
+	} else {
+		// TODO: error handling
+	}
 }

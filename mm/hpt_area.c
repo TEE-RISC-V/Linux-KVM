@@ -117,7 +117,6 @@ void init_hpt_area_and_bitmap()
 	       bitmap_pages);
 
 	// allocate hpt area
-	size_t hpt_area_size = 0;
 	size_t hpt_pages = (total_ram_pages + PTRS_PER_PTE - 1) / PTRS_PER_PTE;
 	unsigned int hpt_order = ilog2(hpt_pages - 1) + 1;
 	hpt_pages = 1 << hpt_order;
@@ -179,7 +178,7 @@ void init_hpt_area_and_bitmap()
 
 	struct sbiret ret = sbi_ecall(
 		SBI_EXT_SM, SBI_EXT_SM_BITMAP_AND_HPT_INIT, __pa(bitmap_start),
-		bitmap_size, __pa(hpt_area_start), hpt_area_size,
+		bitmap_size, __pa(hpt_area_start), hpt_size,
 		__pa(hpt_pmd_page_start), __pa(hpt_pte_page_start));
 	if (unlikely(ret.error || ret.value)) {
 		panic("init_hpt_area_and_bitmap: failed to init bitmap and hpt area(error: %ld, value: %ld)\n",

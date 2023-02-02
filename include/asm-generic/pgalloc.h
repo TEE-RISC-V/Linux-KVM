@@ -9,7 +9,7 @@
 
 #ifdef CONFIG_HPT_AREA
 #include <linux/hpt_area.h>
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 /**
  * __pte_alloc_one_kernel - allocate a page for PTE-level kernel page table
@@ -121,7 +121,7 @@ static inline int check_pte(struct mm_struct *mm, struct page *pte_page)
 {
 	return check_pt_pte_page((unsigned long)(page_address(pte_page)));
 }
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 #if CONFIG_PGTABLE_LEVELS > 2
 

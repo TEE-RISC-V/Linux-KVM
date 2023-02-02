@@ -13,7 +13,7 @@
 
 #ifdef CONFIG_HPT_AREA
 #include <asm/sbi-sm.h>
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 #ifndef CONFIG_MMU
 #define KERNEL_LINK_ADDR	PAGE_OFFSET
@@ -238,12 +238,12 @@ static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 		}
 	}
 }
-#else
+#else /* CONFIG_HPT_AREA */
 static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
 	*pmdp = pmd;
 }
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 static inline void pmd_clear(pmd_t *pmdp)
 {
@@ -471,12 +471,12 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
 		}
 	}
 }
-#else
+#else /* CONFIG_HPT_AREA */
 static inline void set_pte(pte_t *ptep, pte_t pteval)
 {
 	*ptep = pteval;
 }
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 void flush_icache_pte(pte_t pte);
 
@@ -520,7 +520,12 @@ static inline int ptep_set_access_flags(struct vm_area_struct *vma,
 static inline pte_t ptep_get_and_clear(struct mm_struct *mm,
 				       unsigned long address, pte_t *ptep)
 {
+#ifdef CONFIG_HPT_AREA
+	pte_t pte = *ptep;
+	pte_clear(mm, address, ptep);
+#else /* CONFIG_HPT_AREA */
 	pte_t pte = __pte(atomic_long_xchg((atomic_long_t *)ptep, 0));
+#endif /* CONFIG_HPT_AREA */
 
 	page_table_check_pte_clear(mm, address, pte);
 
@@ -541,7 +546,13 @@ static inline int ptep_test_and_clear_young(struct vm_area_struct *vma,
 static inline void ptep_set_wrprotect(struct mm_struct *mm,
 				      unsigned long address, pte_t *ptep)
 {
+#ifdef CONFIG_HPT_AREA
+	pte_t pteval;
+	pteval.pte = (~(unsigned long)_PAGE_WRITE) & (ptep->pte);
+	set_pte(ptep, pteval);
+#else /* CONFIG_HPT_AREA */
 	atomic_long_and(~(unsigned long)_PAGE_WRITE, (atomic_long_t *)ptep);
+#endif /* CONFIG_HPT_AREA */
 }
 
 #define __HAVE_ARCH_PTEP_CLEAR_YOUNG_FLUSH

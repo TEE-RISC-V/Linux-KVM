@@ -22,14 +22,14 @@
 #define __HAVE_ARCH_PTE_FREE_KERNEL
 #define __HAVE_ARCH_PTE_ALLOC_ONE
 #define __HAVE_ARCH_PTE_FREE
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 #include <asm-generic/pgalloc.h>
 
 #ifdef CONFIG_HPT_AREA
 #include <linux/hpt_area.h>
 #include <asm/sbi-sm.h>
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 
 static inline void pmd_populate_kernel(struct mm_struct *mm,
@@ -180,7 +180,7 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
 {
 	free_hpt_pgd_page((char *)pgd);
 }
-#else
+#else /* CONFIG_HPT_AREA */
 static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 {
 	pgd_t *pgd;
@@ -195,7 +195,7 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 	}
 	return pgd;
 }
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 #ifdef CONFIG_HPT_AREA
 static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
@@ -258,7 +258,7 @@ static inline void pte_free(struct mm_struct *mm, struct page *pte_page)
 	*(unsigned long *)&pte_page->ptl = 0;
 	free_hpt_pte_page((page_address(pte_page)));
 }
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 
 #ifndef __PAGETABLE_PMD_FOLDED

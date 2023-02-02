@@ -795,6 +795,10 @@ retry:
 		disable_pgtable_l4();
 	}
 
+	// TODO: more levels
+	disable_pgtable_l5();
+	disable_pgtable_l4();
+
 	memset(early_pg_dir, 0, PAGE_SIZE);
 	memset(early_p4d, 0, PAGE_SIZE);
 	memset(early_pud, 0, PAGE_SIZE);

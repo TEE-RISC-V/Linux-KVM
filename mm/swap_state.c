@@ -27,7 +27,7 @@
 
 #ifdef CONFIG_HPT_AREA
 #include <asm/pgalloc.h>
-#endif
+#endif /* CONFIG_HPT_AREA */f
 
 /*
  * swapper_space is a fiction, retained to simplify the path through
@@ -323,9 +323,9 @@ void free_pages_and_swap_cache(struct page **pages, int nr)
 		else
 			pte_free_no_dtor(NULL, pagep[i]);
 	}
-#else
+#else /* CONFIG_HPT_AREA */
 	release_pages(pagep, nr);
-#endif
+#endif /* CONFIG_HPT_AREA */
 }
 
 static inline bool swap_use_vma_readahead(void)

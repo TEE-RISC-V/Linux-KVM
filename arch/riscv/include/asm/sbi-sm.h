@@ -9,6 +9,7 @@
 #define SBI_EXT_SM_SET_SHARED 0
 #define SBI_EXT_SM_BITMAP_AND_HPT_INIT 1
 #define SBI_EXT_SM_SET_PTE 2
+#define SBI_EXT_SM_MONITOR_INIT 3
 
 // sbi_ext_sm_set_pte_sub_fid
 #define SBI_EXT_SM_SET_PTE_CLEAR 0

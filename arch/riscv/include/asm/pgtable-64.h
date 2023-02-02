@@ -12,7 +12,7 @@
 
 #ifdef CONFIG_HPT_AREA
 #include <asm/sbi-sm.h>
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 extern bool pgtable_l4_enabled;
 extern bool pgtable_l5_enabled;
@@ -176,12 +176,12 @@ static inline void set_pud(pud_t *pudp, pud_t pud)
 		}
 	}
 }
-#else
+#else /* CONFIG_HPT_AREA */
 static inline void set_pud(pud_t *pudp, pud_t pud)
 {
 	*pudp = pud;
 }
-#endif
+#endif /* CONFIG_HPT_AREA */
 
 static inline void pud_clear(pud_t *pudp)
 {

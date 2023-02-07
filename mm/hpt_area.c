@@ -25,6 +25,7 @@ uintptr_t hpt_pte_page_start = 0;
 struct hpt_page_list *hpt_pte_page_list = NULL;
 struct hpt_page_list *hpt_pte_free_list = NULL;
 
+extern pte_t *fixmap_pte, *fixmap_pte_pa;
 static void deep_copy_pt(pte_t *src_pt, pte_t *dest_pt, int level)
 {
 	unsigned long i = 0;
@@ -37,7 +38,7 @@ static void deep_copy_pt(pte_t *src_pt, pte_t *dest_pt, int level)
 				dest_pt[i] = __pte(pte);
 			} else {
 				pte_t *new_dest_pt;
-				pte_t *new_src_pt;
+				pte_t *new_src_pt, *new_src_pt_pa;
 				if (tmpLevel == 0) {
 					new_dest_pt =
 						(pte_t *)alloc_hpt_pmd_page();
@@ -45,10 +46,14 @@ static void deep_copy_pt(pte_t *src_pt, pte_t *dest_pt, int level)
 					new_dest_pt =
 						(pte_t *)alloc_hpt_pte_page();
 				}
-				new_src_pt = (pte_t *)pfn_to_virt(
-					pte >> _PAGE_PFN_SHIFT);
+				new_src_pt_pa = (pte_t *)pfn_to_phys(pte >> _PAGE_PFN_SHIFT);
+				new_src_pt = (pte_t *)__va(new_src_pt_pa);
 				deep_copy_pt(new_src_pt, new_dest_pt,
 					     level + 1);
+				if (fixmap_pte_pa == new_src_pt_pa) {
+					pr_notice("Transfer fixmap from 0x%lx to 0x%lx\n", fixmap_pte_pa, new_src_pt_pa);
+					fixmap_pte = new_dest_pt;
+				}
 				src_pt[i] = pfn_pte(PFN_DOWN(__pa(new_dest_pt)),
 						    __pgprot(pte & 0x3FF));
 				dest_pt[i] =

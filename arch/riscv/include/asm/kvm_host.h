@@ -322,8 +322,8 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 
 void __kvm_riscv_switch_to(struct kvm_vcpu_arch *vcpu_arch);
 
-void __kvm_riscv_sm_prepare_cpu(int vm_id, int cpu_id);
-void __kvm_riscv_sm_preserve_cpu(int vm_id, int cpu_id);
+void __kvm_riscv_sm_prepare_cpu(int cpu_id);
+void __kvm_riscv_sm_preserve_cpu(int cpu_id);
 
 int kvm_riscv_vcpu_set_interrupt(struct kvm_vcpu *vcpu, unsigned int irq);
 int kvm_riscv_vcpu_unset_interrupt(struct kvm_vcpu *vcpu, unsigned int irq);

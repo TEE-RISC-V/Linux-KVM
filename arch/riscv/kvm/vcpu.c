@@ -1039,7 +1039,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		guest_timing_enter_irqoff();
 
 		if (ran_before && !last_exit_interrupt) {
-			__kvm_riscv_sm_prepare_cpu(vcpu->cpu, vcpu->vcpu_idx);
+			__kvm_riscv_sm_prepare_cpu(vcpu->vcpu_idx);
 		}
 		
 		kvm_riscv_vcpu_enter_exit(vcpu);
@@ -1064,7 +1064,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 			// TODO: pass in proper arguments for multiple VM case
 			
 			// kvm_info("HELLO %d %d\n", vcpu->cpu, vcpu->vcpu_idx);
-			__kvm_riscv_sm_preserve_cpu(vcpu->cpu, vcpu->vcpu_idx);
+			__kvm_riscv_sm_preserve_cpu(vcpu->vcpu_idx);
 		}
 
 		/* Syncup interrupts state with HW */

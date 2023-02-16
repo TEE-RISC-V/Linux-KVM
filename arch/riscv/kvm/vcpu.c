@@ -986,6 +986,12 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 	ret = 1;
 	run->exit_reason = KVM_EXIT_UNKNOWN;
+
+	if (!ran_before) {
+		__kvm_riscv_sm_create_cpu(&vcpu->arch, vcpu->vcpu_id);
+		ran_before = true;
+	}
+
 	while (ret > 0) {
 		/* Check conditions before entering the guest */
 		ret = xfer_to_guest_mode_handle_work(vcpu);
@@ -1038,9 +1044,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 		guest_timing_enter_irqoff();
 
-		if (ran_before) {
-			__kvm_riscv_sm_prepare_cpu(vcpu->vcpu_idx);
-		}
+		__kvm_riscv_sm_prepare_cpu(vcpu->vcpu_idx);
 		
 		kvm_riscv_vcpu_enter_exit(vcpu);
 

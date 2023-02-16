@@ -1043,12 +1043,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 			__kvm_riscv_sm_create_cpu(&vcpu->arch, vcpu->vcpu_id);
 			ran_before = true;
 		}
-
-
-		// __kvm_riscv_sm_prepare_cpu(vcpu->vcpu_idx);
 		
 		// kvm_riscv_vcpu_enter_exit(vcpu);
-
 		__kvm_riscv_sm_resume_cpu(&vcpu->arch, vcpu->vcpu_id);
 
 		vcpu->mode = OUTSIDE_GUEST_MODE;
@@ -1066,8 +1062,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		trap.htinst = csr_read(CSR_HTINST);
 
 		last_exit_interrupt = trap.scause & CAUSE_IRQ_FLAG;
-
-		// __kvm_riscv_sm_preserve_cpu(vcpu->vcpu_idx);
 
 		/* Syncup interrupts state with HW */
 		kvm_riscv_vcpu_sync_interrupts(vcpu);

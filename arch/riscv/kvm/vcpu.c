@@ -946,8 +946,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 	
 
 	bool ran_before = vcpu->arch.ran_atleast_once;
-	bool last_exit_interrupt = vcpu->arch.last_exit_interrupt;
-
 	/* Mark this VCPU ran at least once */
 	vcpu->arch.ran_atleast_once = true;
 
@@ -1061,8 +1059,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		trap.htval = csr_read(CSR_HTVAL);
 		trap.htinst = csr_read(CSR_HTINST);
 
-		last_exit_interrupt = trap.scause & CAUSE_IRQ_FLAG;
-
 		/* Syncup interrupts state with HW */
 		kvm_riscv_vcpu_sync_interrupts(vcpu);
 
@@ -1090,8 +1086,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		kvm_vcpu_srcu_read_lock(vcpu);
 
 		ret = kvm_riscv_vcpu_exit(vcpu, run, &trap);
-
-		vcpu->arch.last_exit_interrupt = last_exit_interrupt;
 	}
 
 	kvm_sigset_deactivate(vcpu);

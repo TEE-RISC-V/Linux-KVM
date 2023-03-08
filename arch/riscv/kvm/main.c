@@ -15,8 +15,8 @@
 #include <asm/sbi.h>
 #include <asm/sbi-sm.h>
 
-long kvm_arch_dev_ioctl(struct file *filp,
-			unsigned int ioctl, unsigned long arg)
+long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
+			unsigned long arg)
 {
 	return -EINVAL;
 }
@@ -129,8 +129,8 @@ static int __init riscv_kvm_init(void)
 	struct sbiret ret = sbi_ecall(SBI_EXT_SM, SBI_EXT_SM_MONITOR_INIT, 0, 0,
 				      0, 0, 0, 0);
 	if (unlikely(ret.error || ret.value)) {
-		panic("riscv_kvm_init: failed to init sm\n", ret.error,
-		      ret.value);
+		panic("riscv_kvm_init: failed to init sm (error: %lu, value: %lu)\n",
+		      ret.error, ret.value);
 		while (1) {
 		}
 	}

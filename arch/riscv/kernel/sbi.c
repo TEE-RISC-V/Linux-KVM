@@ -698,9 +698,9 @@ void __init sbi_init(void)
 	riscv_set_ipi_ops(&sbi_ipi_ops);
 
 	// TODO: add this back in
-	// if (sbi_probe_extension(SBI_EXT_SM) > 0) {
-	// 	pr_info("SBI Secure Monitor extension detected\n");
-	// } else {
-	// 	// TODO: error handling
-	// }
+	if (sbi_probe_extension(SBI_EXT_SM) > 0) {
+		pr_info("SBI Secure Monitor extension detected\n");
+	} else {
+		// TODO: error handling
+	}
 }

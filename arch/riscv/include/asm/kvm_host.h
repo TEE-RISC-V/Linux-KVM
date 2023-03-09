@@ -18,7 +18,6 @@
 #include <asm/kvm_vcpu_fp.h>
 #include <asm/kvm_vcpu_insn.h>
 #include <asm/kvm_vcpu_timer.h>
-#include <asm/sm.h>
 
 #define KVM_MAX_VCPUS			1024
 

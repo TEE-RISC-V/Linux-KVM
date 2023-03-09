@@ -932,7 +932,9 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
 static void noinstr kvm_riscv_vcpu_enter_exit(struct kvm_vcpu *vcpu)
 {
 	guest_state_enter_irqoff();
-	__kvm_riscv_switch_to(&vcpu->arch);
+	// __kvm_riscv_switch_to(&vcpu->arch);
+	__kvm_riscv_sm_resume_cpu(&vcpu->arch, vcpu->vcpu_id);
+
 	vcpu->arch.last_exit_cpu = vcpu->cpu;
 	guest_state_exit_irqoff();
 }
@@ -1042,8 +1044,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 			ran_before = true;
 		}
 		
-		// kvm_riscv_vcpu_enter_exit(vcpu);
-		__kvm_riscv_sm_resume_cpu(&vcpu->arch, vcpu->vcpu_id);
+		kvm_riscv_vcpu_enter_exit(vcpu);
 
 		vcpu->mode = OUTSIDE_GUEST_MODE;
 		vcpu->stat.exits++;

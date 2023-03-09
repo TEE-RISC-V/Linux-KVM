@@ -157,10 +157,6 @@ config RISCV_SBI
 	depends on !RISCV_M_MODE
 	default y
 
-config HPT_AREA
-  	bool
-	default y
-
 config MMU
 	bool "MMU-based Paged Memory Management Support"
 	default y
@@ -284,6 +280,19 @@ config ARCH_RV64I
 	select HAVE_FUNCTION_GRAPH_TRACER
 	select HAVE_FUNCTION_TRACER if !XIP_KERNEL
 	select SWIOTLB if MMU
+
+endchoice
+
+choice
+	prompt "IS_HOST"
+	default HPT_AREA
+
+	config HPT_AREA
+		bool "HPT_AREA"
+	config NO_HPT_AREA
+		bool "NO_HPT_AREA"
+	help
+	  Is this compiling the host OS or the guest OS
 
 endchoice
 

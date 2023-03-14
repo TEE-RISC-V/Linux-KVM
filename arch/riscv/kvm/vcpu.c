@@ -932,7 +932,9 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
 static void noinstr kvm_riscv_vcpu_enter_exit(struct kvm_vcpu *vcpu)
 {
 	guest_state_enter_irqoff();
-	__kvm_riscv_switch_to(&vcpu->arch);
+	// __kvm_riscv_switch_to(&vcpu->arch);
+	__kvm_riscv_sm_resume_cpu(&vcpu->arch, vcpu->vcpu_id);
+
 	vcpu->arch.last_exit_cpu = vcpu->cpu;
 	guest_state_exit_irqoff();
 }
@@ -943,6 +945,9 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 	struct kvm_cpu_trap trap;
 	struct kvm_run *run = vcpu->run;
 
+	
+
+	bool ran_before = vcpu->arch.ran_atleast_once;
 	/* Mark this VCPU ran at least once */
 	vcpu->arch.ran_atleast_once = true;
 
@@ -981,6 +986,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 	ret = 1;
 	run->exit_reason = KVM_EXIT_UNKNOWN;
+
 	while (ret > 0) {
 		/* Check conditions before entering the guest */
 		ret = xfer_to_guest_mode_handle_work(vcpu);
@@ -1033,6 +1039,11 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 		guest_timing_enter_irqoff();
 
+		if (unlikely(!ran_before)) {
+			__kvm_riscv_sm_create_cpu(&vcpu->arch, vcpu->vcpu_id);
+			ran_before = true;
+		}
+		
 		kvm_riscv_vcpu_enter_exit(vcpu);
 
 		vcpu->mode = OUTSIDE_GUEST_MODE;

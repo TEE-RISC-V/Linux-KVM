@@ -21,6 +21,10 @@
 #include <linux/crash_dump.h>
 #include <linux/hugetlb.h>
 
+#ifdef CONFIG_HPT_AREA
+#include <linux/hpt_area.h>
+#endif
+
 #include <asm/fixmap.h>
 #include <asm/tlbflush.h>
 #include <asm/sections.h>
@@ -277,7 +281,13 @@ EXPORT_SYMBOL(riscv_pfn_base);
 
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
+
+#ifdef CONFIG_HPT_AREA
+static pte_t fixmap_pte_tmp[PTRS_PER_PTE] __page_aligned_bss;
+pte_t *fixmap_pte, *fixmap_pte_pa;
+#else /* CONFIG_HPT_AREA */
 static pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
+#endif /* CONFIG_HPT_AREA */
 
 pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
 static p4d_t __maybe_unused early_dtb_p4d[PTRS_PER_P4D] __initdata __aligned(PAGE_SIZE);
@@ -795,6 +805,10 @@ retry:
 		disable_pgtable_l4();
 	}
 
+	// TODO: more levels
+	disable_pgtable_l5();
+	disable_pgtable_l4();
+
 	memset(early_pg_dir, 0, PAGE_SIZE);
 	memset(early_p4d, 0, PAGE_SIZE);
 	memset(early_pud, 0, PAGE_SIZE);
@@ -959,6 +973,10 @@ static void __init pt_ops_set_late(void)
 
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
+#ifdef CONFIG_HPT_AREA
+	fixmap_pte = __pa(fixmap_pte_tmp);
+	fixmap_pte_pa = fixmap_pte;
+#endif
 	pmd_t __maybe_unused fix_bmap_spmd, fix_bmap_epmd;
 
 	kernel_map.virt_addr = KERNEL_LINK_ADDR;
@@ -1092,6 +1110,10 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 static void __init setup_vm_final(void)
 {
+#ifdef CONFIG_HPT_AREA
+	fixmap_pte = fixmap_pte_tmp;
+#endif
+
 	uintptr_t va, map_size;
 	phys_addr_t pa, start, end;
 	u64 i;

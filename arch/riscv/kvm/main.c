@@ -13,9 +13,10 @@
 #include <asm/csr.h>
 #include <asm/hwcap.h>
 #include <asm/sbi.h>
+#include <asm/sbi-sm.h>
 
-long kvm_arch_dev_ioctl(struct file *filp,
-			unsigned int ioctl, unsigned long arg)
+long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
+			unsigned long arg)
 {
 	return -EINVAL;
 }
@@ -124,6 +125,16 @@ void kvm_arch_exit(void)
 
 static int __init riscv_kvm_init(void)
 {
+#ifdef CONFIG_HPT_AREA
+	struct sbiret ret = sbi_ecall(SBI_EXT_SM, SBI_EXT_SM_MONITOR_INIT, 0, 0,
+				      0, 0, 0, 0);
+	if (unlikely(ret.error || ret.value)) {
+		panic("riscv_kvm_init: failed to init sm (error: %lu, value: %lu)\n",
+		      ret.error, ret.value);
+		while (1) {
+		}
+	}
+#endif /* CONFIG_HPT_AREA */
 	return kvm_init(NULL, sizeof(struct kvm_vcpu), 0, THIS_MODULE);
 }
 module_init(riscv_kvm_init);

@@ -68,6 +68,10 @@ obj-y += init-mm.o
 obj-y += memblock.o
 obj-y += $(memory-hotplug-y)
 
+ifdef CONFIG_HPT_AREA
+	obj-$(CONFIG_HPT_AREA) += hpt_area.o
+endif
+
 ifdef CONFIG_MMU
 	obj-$(CONFIG_ADVISE_SYSCALLS)	+= madvise.o
 endif

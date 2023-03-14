@@ -283,6 +283,19 @@ config ARCH_RV64I
 
 endchoice
 
+choice
+	prompt "IS_HOST"
+	default HPT_AREA
+
+	config HPT_AREA
+		bool "HPT_AREA"
+	config NO_HPT_AREA
+		bool "NO_HPT_AREA"
+	help
+	  Is this compiling the host OS or the guest OS
+
+endchoice
+
 # We must be able to map all physical memory into the kernel, but the compiler
 # is still a bit more efficient when generating code if it's setup in a manner
 # such that it can only map 2GiB of memory.

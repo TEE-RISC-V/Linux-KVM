@@ -7,6 +7,10 @@
 #define GFP_PGTABLE_KERNEL	(GFP_KERNEL | __GFP_ZERO)
 #define GFP_PGTABLE_USER	(GFP_PGTABLE_KERNEL | __GFP_ACCOUNT)
 
+#ifdef CONFIG_HPT_AREA
+#include <linux/hpt_area.h>
+#endif /* CONFIG_HPT_AREA */
+
 /**
  * __pte_alloc_one_kernel - allocate a page for PTE-level kernel page table
  * @mm: the mm_struct of the current context
@@ -34,6 +38,7 @@ static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm)
 }
 #endif
 
+#ifndef __HAVE_ARCH_PTE_FREE_KERNEL
 /**
  * pte_free_kernel - free PTE-level kernel page table page
  * @mm: the mm_struct of the current context
@@ -43,6 +48,7 @@ static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 {
 	free_page((unsigned long)pte);
 }
+#endif
 
 /**
  * __pte_alloc_one - allocate a page for PTE-level user page table
@@ -86,6 +92,7 @@ static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
 }
 #endif
 
+#ifndef __HAVE_ARCH_PTE_FREE
 /*
  * Should really implement gc for free page table pages. This could be
  * done with a reference count in struct page.
@@ -101,7 +108,20 @@ static inline void pte_free(struct mm_struct *mm, struct page *pte_page)
 	pgtable_pte_page_dtor(pte_page);
 	__free_page(pte_page);
 }
+#endif
 
+#ifdef CONFIG_HPT_AREA
+static inline void pte_free_no_dtor(struct mm_struct *mm, struct page *pte_page)
+{
+	*(unsigned long *)&pte_page->ptl = 0;
+	free_hpt_pte_page(page_address(pte_page));
+}
+
+static inline int check_pte(struct mm_struct *mm, struct page *pte_page)
+{
+	return check_pt_pte_page((unsigned long)(page_address(pte_page)));
+}
+#endif /* CONFIG_HPT_AREA */
 
 #if CONFIG_PGTABLE_LEVELS > 2
 

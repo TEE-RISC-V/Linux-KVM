@@ -27,7 +27,7 @@
 
 #ifdef CONFIG_HPT_AREA
 #include <asm/pgalloc.h>
-#endif /* CONFIG_HPT_AREA */f
+#endif /* CONFIG_HPT_AREA */
 
 /*
  * swapper_space is a fiction, retained to simplify the path through

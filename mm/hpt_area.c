@@ -123,7 +123,7 @@ void init_hpt_area_and_bitmap()
 
 	// allocate hpt area
 	size_t hpt_pages = (total_ram_pages + PTRS_PER_PTE - 1) / PTRS_PER_PTE;
-	unsigned int hpt_order = ilog2(hpt_pages - 1) + 1;
+	unsigned int hpt_order = ilog2(hpt_pages - 1) + 2;
 	hpt_pages = 1 << hpt_order;
 	pte_pages = hpt_pages - (1 << PGD_PAGE_ORDER) - (1 << PMD_PAGE_ORDER);
 	size_t hpt_size = hpt_pages * PAGE_SIZE;

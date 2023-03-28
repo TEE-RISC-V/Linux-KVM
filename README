@@ -1,3 +1,9 @@
+Branch Description
+==================
+master  -  Hypervisor OS and KVM
+guest   -  Guest OS
+
+
 Linux kernel
 ============
 

@@ -47,6 +47,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/slab.h>
 #endif
+#include <asm/sbi.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/swiotlb.h>
@@ -197,6 +198,18 @@ void swiotlb_print_info(void)
 
 	pr_info("mapped [mem %pa-%pa] (%luMB)\n", &mem->start, &mem->end,
 	       (mem->nslabs << IO_TLB_SHIFT) >> 20);
+
+	// SBI_EXT_SM 0x8000000
+	// SBI_EXT_SM_SET_GUEST_BOUNCE_BUFFER 0x0
+	// *(unsigned *)(phys_to_virt(mem->start)) = 0x1234; // prevent page fault
+	struct sbiret ret = sbi_ecall(0x8000000, 0x0, mem->start,
+				      mem->nslabs << IO_TLB_SHIFT, 0, 0, 0, 0);
+	if (unlikely(ret.error || ret.value)) {
+		panic("swiotlb_print_info: failed to set bounce buffer(error: %ld, value: %ld)\n",
+		      ret.error, ret.value);
+		while (1) {
+		}
+	}
 }
 
 static inline unsigned long io_tlb_offset(unsigned long val)

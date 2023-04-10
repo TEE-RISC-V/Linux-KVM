@@ -1,6 +1,7 @@
 #include <linux/hpt_area.h>
 #include <linux/printk.h>
 #include <linux/types.h>
+#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <asm/sbi.h>
 #include <asm/page.h>
@@ -46,12 +47,15 @@ static void deep_copy_pt(pte_t *src_pt, pte_t *dest_pt, int level)
 					new_dest_pt =
 						(pte_t *)alloc_hpt_pte_page();
 				}
-				new_src_pt_pa = (pte_t *)pfn_to_phys(pte >> _PAGE_PFN_SHIFT);
+				new_src_pt_pa = (pte_t *)pfn_to_phys(
+					pte >> _PAGE_PFN_SHIFT);
 				new_src_pt = (pte_t *)__va(new_src_pt_pa);
 				deep_copy_pt(new_src_pt, new_dest_pt,
 					     level + 1);
 				if (fixmap_pte_pa == new_src_pt_pa) {
-					pr_notice("Transfer fixmap from 0x%lx to 0x%lx\n", fixmap_pte_pa, new_src_pt_pa);
+					pr_notice(
+						"Transfer fixmap from 0x%lx to 0x%lx\n",
+						fixmap_pte_pa, new_src_pt_pa);
 					fixmap_pte = new_dest_pt;
 				}
 				src_pt[i] = pfn_pte(PFN_DOWN(__pa(new_dest_pt)),
@@ -99,71 +103,109 @@ void transfer_init_pt(void)
 	}
 }
 
-void init_hpt_area_and_bitmap()
+size_t bitmap_size, hpt_size, hpt_pages;
+size_t pgd_free_list_size, pmd_free_list_size, pte_free_list_size;
+uintptr_t bitmap_start, hpt_area_start;
+unsigned int hpt_order;
+void alloc_hpt_area_and_bitmap()
 {
-	const size_t total_ram_pages = totalram_pages();
+	const size_t total_ram_pages =
+		(memblock_end_of_DRAM() - memblock_start_of_DRAM() - 4096) >>
+		PAGE_SHIFT;
 
 	// allocate bitmap
-	size_t bitmap_size = total_ram_pages;
+	bitmap_size = total_ram_pages;
 	size_t bitmap_pages = (bitmap_size + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	unsigned int bitmap_order = ilog2(bitmap_pages);
 	if ((1 << bitmap_order) < bitmap_pages)
 		bitmap_order++;
 	bitmap_pages = 1 << bitmap_order;
 	bitmap_size = bitmap_pages * PAGE_SIZE;
-	uintptr_t bitmap_start = __get_free_pages(GFP_KERNEL, bitmap_order);
-	if (!bitmap_start) {
-		panic("init_hpt_area_and_bitmap: failed to allocate %lu page(s) for bitmap\n",
+	// memblock_reserve doesn't check for conflict, so use the middle of the memory
+	// bitmap_start = __va(memblock_end_of_DRAM() - 4096 - bitmap_size);
+	bitmap_start =
+		__va((memblock_end_of_DRAM() + memblock_start_of_DRAM()) / 2);
+	bitmap_start ^= bitmap_start &
+			(bitmap_size - 1); // align (PMP requirement)
+	if (memblock_reserve(__pa(bitmap_start), bitmap_size) < 0) {
+		panic("alloc_hpt_area_and_bitmap: failed to allocate %lu page(s) for bitmap\n",
 		      bitmap_pages);
 		while (1) {
 		}
 	}
-	printk("init_hpt_area_and_bitmap: Allocated %lu page(s) for bitmap!\n",
-	       bitmap_pages);
+	pr_notice(
+		"alloc_hpt_area_and_bitmap: Allocated %lu page(s) for bitmap!\n",
+		bitmap_pages);
 
 	// allocate hpt area
-	size_t hpt_pages = (total_ram_pages + PTRS_PER_PTE - 1) / PTRS_PER_PTE;
-	unsigned int hpt_order = ilog2(hpt_pages - 1) + 2;
+	hpt_pages = (total_ram_pages + PTRS_PER_PTE - 1) / PTRS_PER_PTE;
+	hpt_order = ilog2(hpt_pages - 1) + 2;
 	hpt_pages = 1 << hpt_order;
 	pte_pages = hpt_pages - (1 << PGD_PAGE_ORDER) - (1 << PMD_PAGE_ORDER);
-	size_t hpt_size = hpt_pages * PAGE_SIZE;
-	uintptr_t hpt_area_start = __get_free_pages(GFP_KERNEL, hpt_order);
+	hpt_size = hpt_pages * PAGE_SIZE;
+	hpt_area_start = bitmap_start - hpt_size;
+	hpt_area_start ^= hpt_area_start &
+			  (hpt_size - 1); // align (PMP requirement)
 	hpt_pgd_page_start = hpt_area_start;
 	hpt_pmd_page_start =
 		hpt_pgd_page_start + (1 << PGD_PAGE_ORDER) * PAGE_SIZE;
 	hpt_pte_page_start =
 		hpt_pmd_page_start + (1 << PMD_PAGE_ORDER) * PAGE_SIZE;
-	memset(hpt_area_start, 0, hpt_size);
-	if (hpt_area_start == NULL) {
-		panic("init_hpt_area_and_bitmap: failed to allocate %lu page(s) for hpt area\n",
+	if (memblock_reserve(__pa(hpt_area_start), hpt_size) < 0) {
+		panic("alloc_hpt_area_and_bitmap: failed to allocate %lu page(s) for hpt area\n",
 		      hpt_pages);
 		while (1) {
 		}
 	}
-	pr_notice("init_hpt_area_and_bitmap: Allocated %lu page(s) for hpt area!\n",
-	       hpt_pages);
+	pr_notice(
+		"alloc_hpt_area_and_bitmap: Allocated %lu page(s) for hpt area!\n",
+		hpt_pages);
 
-	// init hpt area free list
-	size_t free_list_pages = hpt_pages * sizeof(struct hpt_page_list);
-	free_list_pages = (free_list_pages + PAGE_SIZE - 1) / PAGE_SIZE;
-	unsigned int free_list_order = ilog2(free_list_pages - 1) + 1;
-	free_list_pages = 1 << free_list_order;
-	hpt_pgd_page_list = (struct hpt_page_list *)__get_free_pages(
-		GFP_KERNEL, free_list_order);
-	hpt_pmd_page_list = (struct hpt_page_list *)__get_free_pages(
-		GFP_KERNEL, free_list_order);
-	hpt_pte_page_list = (struct hpt_page_list *)__get_free_pages(
-		GFP_KERNEL, free_list_order);
-	memset(hpt_pgd_page_list, 0, free_list_pages * PAGE_SIZE);
-	memset(hpt_pmd_page_list, 0, free_list_pages * PAGE_SIZE);
-	memset(hpt_pte_page_list, 0, free_list_pages * PAGE_SIZE);
-	if ((hpt_pgd_page_list == NULL) || (hpt_pmd_page_list == NULL) ||
-	    (hpt_pte_page_list == NULL)) {
-		panic("init_hpt_area_and_bitmap: failed to allocate %lu page(s) for free list\n",
-		      ((size_t)0x1) << hpt_order);
+	// alloc free list
+	pgd_free_list_size =
+		(1 << PGD_PAGE_ORDER) * sizeof(struct hpt_page_list);
+	pgd_free_list_size =
+		((pgd_free_list_size + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+	pmd_free_list_size =
+		(1 << PMD_PAGE_ORDER) * sizeof(struct hpt_page_list);
+	pmd_free_list_size =
+		((pmd_free_list_size + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+	pte_free_list_size = pte_pages * sizeof(struct hpt_page_list);
+	pte_free_list_size =
+		((pte_free_list_size + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+	hpt_pgd_page_list =
+		(struct hpt_page_list *)(hpt_area_start - pgd_free_list_size);
+	hpt_pmd_page_list = (struct hpt_page_list *)(hpt_pgd_page_list -
+						     pmd_free_list_size);
+	hpt_pte_page_list = (struct hpt_page_list *)(hpt_pmd_page_list -
+						     pte_free_list_size);
+	if (memblock_reserve(__pa(hpt_pgd_page_list), pgd_free_list_size) < 0) {
+		panic("alloc_hpt_area_and_bitmap: failed to allocate %lu page(s) for pgd free list\n",
+		      pgd_free_list_size);
 		while (1) {
 		}
 	}
+	if (memblock_reserve(__pa(hpt_pmd_page_list), pmd_free_list_size) < 0) {
+		panic("alloc_hpt_area_and_bitmap: failed to allocate %lu page(s) for pmd free list\n",
+		      pmd_free_list_size);
+		while (1) {
+		}
+	}
+	if (memblock_reserve(__pa(hpt_pte_page_list), pte_free_list_size) < 0) {
+		panic("alloc_hpt_area_and_bitmap: failed to allocate %lu page(s) for pte free list\n",
+		      pte_free_list_size);
+		while (1) {
+		}
+	}
+}
+
+void init_hpt_area_and_bitmap()
+{
+	memset(hpt_area_start, 0, hpt_size);
+	// init hpt area free list
+	memset(hpt_pgd_page_list, 0, pgd_free_list_size);
+	memset(hpt_pmd_page_list, 0, pmd_free_list_size);
+	memset(hpt_pte_page_list, 0, pte_free_list_size);
 	spin_lock_init(&hpt_lock);
 	spin_lock(&hpt_lock);
 	for (size_t i = 0; i < (1 << PGD_PAGE_ORDER); ++i) {

@@ -6,11 +6,16 @@
 #define PMD_PAGE_ORDER 7
 
 /**
- * Initialize HPT Area and bitmap.
+ * Allocate HPT Area and bitmap.
  * 1. Allocate bitmap
  * 2. Allocate HPT Area.
- * 3. Initialize data structures related to page table allocation.
- * 4. Copy current page tables into it.
+ */
+void alloc_hpt_area_and_bitmap(void);
+
+/**
+ * Initialize HPT Area and bitmap.
+ * 1. Initialize data structures related to page table allocation.
+ * 2. Copy current page tables into it.
  */
 void init_hpt_area_and_bitmap(void);
 

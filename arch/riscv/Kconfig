@@ -293,8 +293,12 @@ choice
 		bool "NO_HPT_AREA"
 	help
 	  Is this compiling the host OS or the guest OS
-
 endchoice
+
+config SM_HAS_REVERSE_MAP
+	bool "SM_HAS_REVERSE_MAP"
+	default n
+	depends on HPT_AREA
 
 # We must be able to map all physical memory into the kernel, but the compiler
 # is still a bit more efficient when generating code if it's setup in a manner

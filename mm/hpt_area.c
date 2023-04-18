@@ -104,8 +104,9 @@ void transfer_init_pt(void)
 }
 
 size_t bitmap_size, hpt_size, hpt_pages;
-size_t pgd_free_list_size, pmd_free_list_size, pte_free_list_size;
-uintptr_t bitmap_start, hpt_area_start;
+size_t pgd_free_list_size, pmd_free_list_size, pte_free_list_size,
+	reverse_map_size;
+uintptr_t bitmap_start, hpt_area_start, reverse_map_start;
 unsigned int hpt_order;
 void alloc_hpt_area_and_bitmap()
 {
@@ -161,6 +162,29 @@ void alloc_hpt_area_and_bitmap()
 		"alloc_hpt_area_and_bitmap: Allocated %lu page(s) for hpt area!\n",
 		hpt_pages);
 
+#ifdef CONFIG_SM_HAS_REVERSE_MAP
+	size_t reverse_map_pages = hpt_pages * (8 + 1);
+	unsigned int reverse_map_order = ilog2(reverse_map_pages - 1) + 1;
+	reverse_map_pages = 1 << reverse_map_order;
+	reverse_map_size = reverse_map_pages * PAGE_SIZE;
+	reverse_map_start = hpt_area_start - reverse_map_size;
+	reverse_map_start ^= reverse_map_start &
+			     (reverse_map_size - 1); // align (PMP requirement)
+	if (!memblock_reserve(__pa(reverse_map_start), reverse_map_size) < 0) {
+		panic("alloc_hpt_area_and_bitmap: failed to allocate %lu page(s) for reverse map\n",
+		      reverse_map_pages);
+		while (1) {
+		}
+	}
+	pr_notice(
+		"alloc_hpt_area_and_bitmap: Allocated %lu page(s) for reverse map!\n",
+		reverse_map_pages);
+#else
+	reverse_map_start = hpt_area_start;
+	pr_notice(
+		"alloc_hpt_area_and_bitmap: Allocated 0 page(s) for reverse map!\n");
+#endif // CONFIG_SM_HAS_REVERSE_MAP
+
 	// alloc free list
 	pgd_free_list_size =
 		(1 << PGD_PAGE_ORDER) * sizeof(struct hpt_page_list);
@@ -173,8 +197,8 @@ void alloc_hpt_area_and_bitmap()
 	pte_free_list_size = pte_pages * sizeof(struct hpt_page_list);
 	pte_free_list_size =
 		((pte_free_list_size + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-	hpt_pgd_page_list =
-		(struct hpt_page_list *)(hpt_area_start - pgd_free_list_size);
+	hpt_pgd_page_list = (struct hpt_page_list *)(reverse_map_start -
+						     pgd_free_list_size);
 	hpt_pmd_page_list = (struct hpt_page_list *)(hpt_pgd_page_list -
 						     pmd_free_list_size);
 	hpt_pte_page_list = (struct hpt_page_list *)(hpt_pmd_page_list -
@@ -235,6 +259,15 @@ void init_hpt_area_and_bitmap()
 	}
 
 	transfer_init_pt();
+
+	ret = sbi_ecall(SBI_EXT_SM, SBI_EXT_SM_REVERSE_MAP_INIT,
+			__pa(reverse_map_start), reverse_map_size, 0, 0, 0, 0);
+	if (unlikely(ret.error || ret.value)) {
+		panic("init_hpt_area_and_bitmap: failed to init reverse map(error: %ld, value: %ld)\n",
+		      ret.error, ret.value);
+		while (1) {
+		}
+	}
 
 	pr_notice("init_hpt_area_and_bitmap done!\n");
 }

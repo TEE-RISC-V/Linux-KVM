@@ -470,8 +470,12 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		 * Bit[0] == 0 implies trapped instruction value is
 		 * zero or special value.
 		 */
-		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
-						  &utrap);
+		// insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
+		// 				  &utrap);
+
+		// hacky way to implement, but SM will place the instruction into this CSR register
+		insn = csr_read(CSR_VSTVEC);
+
 		if (utrap.scause) {
 			/* Redirect trap if we failed to read instruction */
 			utrap.sepc = ct->sepc;
@@ -596,8 +600,12 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		 * Bit[0] == 0 implies trapped instruction value is
 		 * zero or special value.
 		 */
-		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
-						  &utrap);
+		// insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
+		// 				  &utrap);
+
+		// hacky way to implement, but SM will place the instruction into this CSR register
+		insn = csr_read(CSR_VSTVEC);
+
 		if (utrap.scause) {
 			/* Redirect trap if we failed to read instruction */
 			utrap.sepc = ct->sepc;

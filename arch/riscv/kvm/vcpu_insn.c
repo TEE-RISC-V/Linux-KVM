@@ -663,8 +663,6 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		len = 4;
 		data32 = GET_RS2C(insn, &vcpu->arch.guest_context);
 	} else {
-
-		// kvm_err("bruh 1\n");
 		return -EOPNOTSUPP;
 	}
 
@@ -694,7 +692,6 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		*((u64 *)run->mmio.data) = data64;
 		break;
 	default:
-		// kvm_err("bruh 2\n");
 		return -EOPNOTSUPP;
 	}
 

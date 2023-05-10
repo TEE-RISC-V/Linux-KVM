@@ -11,6 +11,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/csr.h>
 #include <asm/sm_const.h>
+#include <asm/sbi-sm.h>
 
 	.text
 	.altmacro
@@ -519,6 +520,16 @@ ENTRY(__kvm_riscv_sm_resume_cpu)
 	/* Return to C code */
 	ret
 ENDPROC(__kvm_riscv_sm_resume_cpu)
+
+
+ENTRY(__kvm_riscv_sm_prepare_mmio)
+	li a7, SBI_EXT_SM
+	li a6, SBI_EXT_SM_PREPARE_MMIO
+
+	ecall
+
+	ret
+ENDPROC(__kvm_riscv_sm_prepare_mmio)
 
 ENTRY(__kvm_riscv_unpriv_trap)
 	/*

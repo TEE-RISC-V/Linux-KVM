@@ -13,11 +13,17 @@
 static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
 			     struct kvm_cpu_trap *trap)
 {
+	// kvm_err("calling gstage map\n");
+
 	struct kvm_memory_slot *memslot;
 	unsigned long hva, fault_addr;
 	bool writable;
 	gfn_t gfn;
 	int ret;
+
+	// struct kvm_cpu_context ct;
+
+	// memcpy(&ct, &vcpu->arch.guest_context, sizeof(struct kvm_cpu_context));
 
 	fault_addr = (trap->htval << 2) | (trap->stval & 0x3);
 	gfn = fault_addr >> PAGE_SHIFT;
@@ -28,20 +34,30 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	    (trap->scause == EXC_STORE_GUEST_PAGE_FAULT && !writable)) {
 		switch (trap->scause) {
 		case EXC_LOAD_GUEST_PAGE_FAULT:
+			// kvm_err("LOAD MMIO\n");
 			return kvm_riscv_vcpu_mmio_load(vcpu, run,
 							fault_addr,
 							trap->htinst);
 		case EXC_STORE_GUEST_PAGE_FAULT:
+		// kvm_err("STORE MMIO\n");
 			return kvm_riscv_vcpu_mmio_store(vcpu, run,
 							 fault_addr,
 							 trap->htinst);
 		default:
+			// kvm_err("here\n");
 			return -EOPNOTSUPP;
 		};
 	}
 
+	// kvm_err("calling gstage map\n");
+
+	// memset(&vcpu->arch.guest_context, 0, sizeof(struct kvm_cpu_context));
+
 	ret = kvm_riscv_gstage_map(vcpu, memslot, fault_addr, hva,
 		(trap->scause == EXC_STORE_GUEST_PAGE_FAULT) ? true : false);
+
+	// memcpy(&vcpu->arch.guest_context, &ct, sizeof(struct kvm_cpu_context));
+
 	if (ret < 0)
 		return ret;
 
@@ -186,6 +202,7 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	case EXC_INST_GUEST_PAGE_FAULT:
 	case EXC_LOAD_GUEST_PAGE_FAULT:
 	case EXC_STORE_GUEST_PAGE_FAULT:
+		// kvm_err("WOW WOW WOW\n");
 		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 			ret = gstage_page_fault(vcpu, run, trap);
 		break;

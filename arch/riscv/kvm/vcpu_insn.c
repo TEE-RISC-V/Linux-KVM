@@ -457,6 +457,15 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	struct kvm_cpu_trap utrap = { 0 };
 	struct kvm_cpu_context *ct = &vcpu->arch.guest_context;
 
+	if (!vcpu->arch.expecting_mmio) {
+		vcpu->arch.expecting_mmio = true;
+		__kvm_riscv_sm_prepare_mmio(vcpu->vcpu_id);
+		
+		return 0;
+	}
+
+	vcpu->arch.expecting_mmio = false;
+
 	/* Determine trapped instruction */
 	if (htinst & 0x1) {
 		/*
@@ -587,6 +596,15 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	struct kvm_cpu_trap utrap = { 0 };
 	struct kvm_cpu_context *ct = &vcpu->arch.guest_context;
 
+	if (!vcpu->arch.expecting_mmio) {
+		vcpu->arch.expecting_mmio = true;
+		__kvm_riscv_sm_prepare_mmio(vcpu->vcpu_id);
+		
+		return 0;
+	}
+
+	vcpu->arch.expecting_mmio = false;
+
 	/* Determine trapped instruction */
 	if (htinst & 0x1) {
 		/*
@@ -645,6 +663,8 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		len = 4;
 		data32 = GET_RS2C(insn, &vcpu->arch.guest_context);
 	} else {
+
+		// kvm_err("bruh 1\n");
 		return -EOPNOTSUPP;
 	}
 
@@ -674,6 +694,7 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		*((u64 *)run->mmio.data) = data64;
 		break;
 	default:
+		// kvm_err("bruh 2\n");
 		return -EOPNOTSUPP;
 	}
 

@@ -163,6 +163,8 @@ struct kvm_vcpu_arch {
 	/* VCPU ran at least once */
 	bool ran_atleast_once;
 
+	bool expecting_mmio;
+
 	/* Last Host CPU on which Guest VCPU exited */
 	int last_exit_cpu;
 
@@ -321,6 +323,8 @@ void __kvm_riscv_switch_to(struct kvm_vcpu_arch *vcpu_arch);
 
 void __kvm_riscv_sm_create_cpu(void*, int);
 void __kvm_riscv_sm_resume_cpu(void*, int);
+void __kvm_riscv_sm_prepare_mmio(int);
+
 
 int kvm_riscv_vcpu_set_interrupt(struct kvm_vcpu *vcpu, unsigned int irq);
 int kvm_riscv_vcpu_unset_interrupt(struct kvm_vcpu *vcpu, unsigned int irq);

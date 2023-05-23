@@ -482,8 +482,8 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		// insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
 		// 				  &utrap);
 
-		// hacky way to implement, but SM will place the instruction into this CSR register
-		insn = csr_read(CSR_VSTVEC);
+		// New method of reading the instruction: the hypervisor will read it instead
+		insn = ct->a1;
 
 		if (utrap.scause) {
 			/* Redirect trap if we failed to read instruction */
@@ -621,8 +621,8 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		// insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
 		// 				  &utrap);
 
-		// hacky way to implement, but SM will place the instruction into this CSR register
-		insn = csr_read(CSR_VSTVEC);
+		// New method of reading the instruction: the hypervisor will read it instead
+		insn = ct->a1;
 
 		if (utrap.scause) {
 			/* Redirect trap if we failed to read instruction */

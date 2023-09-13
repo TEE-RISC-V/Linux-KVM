@@ -1,7 +1,23 @@
+Linux Trusted Execution Environment
+===================================
+
+This is a fork of the Linux kernel with modifications to support a Trusted
+Execution Environment (TEE) based on the RISC-V architecture. The TEE is
+implemented as layer of software running below the hypervisor in M-mode. 
+
+The TEE is responsible for securely performing page table management and
+interrupt handling. The TEE is also responsible for securely loading the
+hypervisor and guest kernels into memory. The M-mode firmware is implemented
+as a modified version of the OpenSBI firmware located [here](https://github.com/TEE-RISC-V/OpenSBI).
+
+
 Branch Description
 ==================
-master  -  Hypervisor OS and KVM
-guest   -  Guest OS
+
+- **master** : This is the branch containing the hypervisor host kernel, most of the
+modifications are done in this branch.  
+- **guest**  : This is the guest kernel branch, it is largely unmodified from the
+upstream kernel.
 
 
 Linux kernel

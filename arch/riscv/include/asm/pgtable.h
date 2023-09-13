@@ -225,6 +225,7 @@ static inline int pmd_leaf(pmd_t pmd)
 }
 
 #ifdef CONFIG_HPT_AREA
+// Ask the Security Monitor to set the pte values
 static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
 	long error, value;
@@ -458,6 +459,7 @@ static inline int pte_same(pte_t pte_a, pte_t pte_b)
  * made available.
  */
 #ifdef CONFIG_HPT_AREA
+// Setting the pte is SM's responsibility
 static inline void set_pte(pte_t *ptep, pte_t pteval)
 {
 	long error, value;

@@ -1,4 +1,7 @@
-/*  */
+/* 
+ * Defines constants for use by the SM
+ * 
+ */
 
 #ifndef __ASM_SM_CONST_H
 #define __ASM_SM_CONST_H

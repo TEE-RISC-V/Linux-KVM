@@ -19,11 +19,7 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	gfn_t gfn;
 	int ret;
 
-//	printk(KERN_WARNING "gstage_page_fault\n");
 	fault_addr = (trap->htval << 2) | (trap->stval & 0x3);
-
-//printk(KERN_WARNING "fault_addr = %lu\n", fault_addr);
-
 	gfn = fault_addr >> PAGE_SHIFT;
 	memslot = gfn_to_memslot(vcpu->kvm, gfn);
 	hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
@@ -32,18 +28,19 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	    (trap->scause == EXC_STORE_GUEST_PAGE_FAULT && !writable)) {
 		switch (trap->scause) {
 		case EXC_LOAD_GUEST_PAGE_FAULT:
-			return kvm_riscv_vcpu_mmio_load(vcpu, run, fault_addr,
+			return kvm_riscv_vcpu_mmio_load(vcpu, run,
+							fault_addr,
 							trap->htinst);
 		case EXC_STORE_GUEST_PAGE_FAULT:
-			return kvm_riscv_vcpu_mmio_store(vcpu, run, fault_addr,
+			return kvm_riscv_vcpu_mmio_store(vcpu, run,
+							 fault_addr,
 							 trap->htinst);
 		default:
 			return -EOPNOTSUPP;
 		};
 	}
 
-	ret = kvm_riscv_gstage_map(
-		vcpu, memslot, fault_addr, hva,
+	ret = kvm_riscv_gstage_map(vcpu, memslot, fault_addr, hva,
 		(trap->scause == EXC_STORE_GUEST_PAGE_FAULT) ? true : false);
 	if (ret < 0)
 		return ret;
@@ -59,7 +56,8 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
  * @guest_addr: Guest address to read
  * @trap: Output pointer to trap details
  */
-unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu, bool read_insn,
+unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu,
+					 bool read_insn,
 					 unsigned long guest_addr,
 					 struct kvm_cpu_trap *trap)
 {
@@ -77,26 +75,23 @@ unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu, bool read_insn,
 		 * HLVX.HU instruction
 		 * 0110010 00011 rs1 100 rd 1110011
 		 */
-		asm volatile(
-			"\n"
+		asm volatile ("\n"
 			".option push\n"
 			".option norvc\n"
-			"add %[ttmp], %[taddr], 0\n" 
-            HLVX_HU( %[val], %[addr])
-            "andi %[tmp], %[val], 3\n"
-            "addi %[tmp], %[tmp], -3\n"
-            "bne %[tmp], zero, 2f\n"
-            "addi %[addr], %[addr], 2\n" 
-            HLVX_HU( %[tmp], %[addr]) 
-            "sll %[tmp], %[tmp], 16\n"
-            "add %[val], %[val], %[tmp]\n"
-            "2:\n"
-            ".option pop"
-			: [val] "=&r"(val), [tmp] "=&r"(tmp),
-			  [taddr] "+&r"(taddr), [ttmp] "+&r"(ttmp),
-			  [addr] "+&r"(guest_addr)
-			:
-			: "memory");
+			"add %[ttmp], %[taddr], 0\n"
+			HLVX_HU(%[val], %[addr])
+			"andi %[tmp], %[val], 3\n"
+			"addi %[tmp], %[tmp], -3\n"
+			"bne %[tmp], zero, 2f\n"
+			"addi %[addr], %[addr], 2\n"
+			HLVX_HU(%[tmp], %[addr])
+			"sll %[tmp], %[tmp], 16\n"
+			"add %[val], %[val], %[tmp]\n"
+			"2:\n"
+			".option pop"
+		: [val] "=&r" (val), [tmp] "=&r" (tmp),
+		  [taddr] "+&r" (taddr), [ttmp] "+&r" (ttmp),
+		  [addr] "+&r" (guest_addr) : : "memory");
 
 		if (trap->scause == EXC_LOAD_PAGE_FAULT)
 			trap->scause = EXC_INST_PAGE_FAULT;
@@ -108,20 +103,19 @@ unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu, bool read_insn,
 		 * HLV.W instruction
 		 * 0110100 00000 rs1 100 rd 1110011
 		 */
-		asm volatile("\n"
-			     ".option push\n"
-			     ".option norvc\n"
-			     "add %[ttmp], %[taddr], 0\n"
+		asm volatile ("\n"
+			".option push\n"
+			".option norvc\n"
+			"add %[ttmp], %[taddr], 0\n"
 #ifdef CONFIG_64BIT
-			     HLV_D(%[val], %[addr])
+			HLV_D(%[val], %[addr])
 #else
-			     HLV_W(%[val], %[addr])
+			HLV_W(%[val], %[addr])
 #endif
-				     ".option pop"
-			     : [val] "=&r"(val), [taddr] "+&r"(taddr),
-			       [ttmp] "+&r"(ttmp)
-			     : [addr] "r"(guest_addr)
-			     : "memory");
+			".option pop"
+		: [val] "=&r" (val),
+		  [taddr] "+&r" (taddr), [ttmp] "+&r" (ttmp)
+		: [addr] "r" (guest_addr) : "memory");
 	}
 
 	csr_write(CSR_STVEC, old_stvec);

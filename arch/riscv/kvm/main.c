@@ -123,6 +123,14 @@ void kvm_arch_exit(void)
 {
 }
 
+/**
+ * riscv_kvm_init - KVM module init function
+ * 
+ * This function is called when the KVM module is loaded.
+ * An sbi_ecall is used to set up the security monitor
+ *
+ *
+ */
 static int __init riscv_kvm_init(void)
 {
 #ifdef CONFIG_HPT_AREA

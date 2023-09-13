@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-1.0
 /*
  * Copyright (C) 2019 Western Digital Corporation or its affiliates.
  *
@@ -18,6 +18,10 @@
 #include <asm/csr.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
+
+#ifdef CONFIG_HPT_AREA
+#include <asm/sbi-sm.h>
+#endif /* CONFIG_HPT_AREA */
 
 #ifdef CONFIG_64BIT
 static unsigned long gstage_mode = (HGATP_MODE_SV39X4 << HGATP_MODE_SHIFT);
@@ -39,6 +43,32 @@ static unsigned long gstage_pgd_levels = 2;
 #define gstage_pte_leaf(__ptep)	\
 	(pte_val(*(__ptep)) & (_PAGE_READ | _PAGE_WRITE | _PAGE_EXEC))
 
+// TODO: DELETE THIS!!!
+#define u64 unsigned long long
+#define u32 unsigned int
+#define EINVAL 22
+
+void sbi_call_helper(unsigned long *error, unsigned long *value,
+                        unsigned long fid, unsigned long exfid,
+                        unsigned long arg0, unsigned long arg1,
+                        unsigned long arg2, unsigned long arg3,
+                        unsigned long arg4, char *msg)
+{
+	sbi_sm_ecall(error, value, fid, exfid, arg0, arg1, arg2, arg3, arg4);
+	if (unlikely(*error || *value)) {
+		panic("SBI call failed: error=%ld, value=%ld with \
+                                fid=%ld, exfid=%ld, arg0=%ld, arg1=%ld,\
+                                arg2=%ld, arg3=%ld, arg4=%ld \nWith message: %s",
+		      *error, *value, fid, exfid, arg0, arg1, arg2, arg3, arg4, msg);
+		while (1) {
+		}
+	}
+}
+
+// Used here everywhere by:
+// - gstage_get_leaf_entry x2
+// - gstage_set_pte x2
+
 static inline unsigned long gstage_pte_index(gpa_t addr, u32 level)
 {
 	unsigned long mask;
@@ -52,11 +82,18 @@ static inline unsigned long gstage_pte_index(gpa_t addr, u32 level)
 	return (addr >> shift) & mask;
 }
 
+
+// Used here by:
+// - gstage_set_pte
+// - gstage_op_pte
+// - gstage_get_leaf_entry
 static inline unsigned long gstage_pte_page_vaddr(pte_t pte)
 {
 	return (unsigned long)pfn_to_virt(__page_val_to_pfn(pte_val(pte)));
 }
 
+
+// Used here by gstage_map_page
 static int gstage_page_size_to_level(unsigned long page_size, u32 *out_level)
 {
 	u32 i;
@@ -72,6 +109,10 @@ static int gstage_page_size_to_level(unsigned long page_size, u32 *out_level)
 	return -EINVAL;
 }
 
+// Used here by:
+// - gstage_level_to_page_size
+// - gstage_remote_tlb_flush
+// takes level and returns the number of bits in the level
 static int gstage_level_to_page_order(u32 level, unsigned long *out_pgorder)
 {
 	if (gstage_pgd_levels < level)
@@ -81,6 +122,12 @@ static int gstage_level_to_page_order(u32 level, unsigned long *out_pgorder)
 	return 0;
 }
 
+
+// Used here everywhere:
+// - gstage_op_pte x2
+// - gstage_unmap_range
+// - gstage_wp_range
+// takes level and returns the bit mask for the level
 static int gstage_level_to_page_size(u32 level, unsigned long *out_pgsize)
 {
 	int rc;
@@ -94,6 +141,12 @@ static int gstage_level_to_page_size(u32 level, unsigned long *out_pgsize)
 	return 0;
 }
 
+
+// Used here everywhere:
+// - gstage_unmap_range
+// - gstage_wp_range
+// - kvm_age_gfn
+// - kvm_test_age_gfn
 static bool gstage_get_leaf_entry(struct kvm *kvm, gpa_t addr,
 				  pte_t **ptepp, u32 *ptep_level)
 {
@@ -123,6 +176,9 @@ static bool gstage_get_leaf_entry(struct kvm *kvm, gpa_t addr,
 	return false;
 }
 
+// Used here by:
+// - gstage_set_pte
+// - gstage_op_pte
 static void gstage_remote_tlb_flush(struct kvm *kvm, u32 level, gpa_t addr)
 {
 	unsigned long order = PAGE_SHIFT;
@@ -134,6 +190,58 @@ static void gstage_remote_tlb_flush(struct kvm *kvm, u32 level, gpa_t addr)
 	kvm_riscv_hfence_gvma_vmid_gpa(kvm, -1UL, 0, addr, BIT(order), order);
 }
 
+// Used here by:
+// - kvm_riscv_gstage_ioremap
+// - gstage_map_page
+#ifdef CONFIG_HPT_AREA
+/*
+static int gstage_set_pte(struct kvm *kvm, u32 level,
+			   struct kvm_mmu_memory_cache *pcache,
+			   gpa_t addr, const pte_t *new_pte)
+{
+
+        long err;
+        long val;
+        sbi_call_helper(&err, &val,SBI_EXT_SM_GSTAGE_MM, SBI_EXT_SM_GSTAGE_MM_SET_PTE);
+
+                        
+	u32 current_level = gstage_pgd_levels - 1;
+	pte_t *next_ptep = (pte_t *)kvm->arch.pgd;
+	pte_t *ptep = &next_ptep[gstage_pte_index(addr, current_level)];
+
+	if (current_level < level)
+		return -EINVAL;
+
+	while (current_level != level) {
+		if (gstage_pte_leaf(ptep))
+			return -EEXIST;
+
+		if (!pte_val(*ptep)) {
+			if (!pcache)
+				return -ENOMEM;
+			// todo: change this from the standard allocator
+			next_ptep = kvm_mmu_memory_cache_alloc(pcache);
+			if (!next_ptep)
+				return -ENOMEM;
+			*ptep = pfn_pte(pfn_down(__pa(next_ptep)),
+					__pgprot(_page_table));
+		} else {
+			if (gstage_pte_leaf(ptep))
+				return -EEXIST;
+			next_ptep = (pte_t *)gstage_pte_page_vaddr(*ptep);
+		}
+
+		current_level--;
+		ptep = &next_ptep[gstage_pte_index(addr, current_level)];
+	}
+
+	*ptep = *new_pte;
+	if (gstage_pte_leaf(ptep))
+		gstage_remote_tlb_flush(kvm, current_level, addr);
+
+	return 0;
+}
+*/
 static int gstage_set_pte(struct kvm *kvm, u32 level,
 			   struct kvm_mmu_memory_cache *pcache,
 			   gpa_t addr, const pte_t *new_pte)
@@ -152,6 +260,7 @@ static int gstage_set_pte(struct kvm *kvm, u32 level,
 		if (!pte_val(*ptep)) {
 			if (!pcache)
 				return -ENOMEM;
+			// todo: change this from the standard allocator
 			next_ptep = kvm_mmu_memory_cache_alloc(pcache);
 			if (!next_ptep)
 				return -ENOMEM;
@@ -174,6 +283,12 @@ static int gstage_set_pte(struct kvm *kvm, u32 level,
 	return 0;
 }
 
+#endif /* CONFIG_HPT_AREA */
+
+
+// Used here everywhere:
+// - kvm_set_spte_gfn
+// - kvm_riscv_gstage_map x2
 static int gstage_map_page(struct kvm *kvm,
 			   struct kvm_mmu_memory_cache *pcache,
 			   gpa_t gpa, phys_addr_t hpa,
@@ -225,6 +340,10 @@ enum gstage_op {
 	GSTAGE_OP_WP,		/* Write-protect */
 };
 
+// Used here everywhere:
+// - gstage_unmap_range
+// - Recursive Call
+// - gstage_wp_range
 static void gstage_op_pte(struct kvm *kvm, gpa_t addr,
 			  pte_t *ptep, u32 ptep_level, enum gstage_op op)
 {
@@ -266,6 +385,12 @@ static void gstage_op_pte(struct kvm *kvm, gpa_t addr,
 	}
 }
 
+// important!! Used here everywhere:
+//  - kvm_riscv_gstage_iounmap
+//  - kvm_arch_flush_shadow_memslot
+//  - kvm_arch_prepare_memory_region
+//  - kvm_unmap_gfn_range
+//  - kvm_riscv_gstage_free_pgd
 static void gstage_unmap_range(struct kvm *kvm, gpa_t start,
 			       gpa_t size, bool may_block)
 {
@@ -302,6 +427,9 @@ next:
 	}
 }
 
+
+// Used here by gstage_wp_memory_region
+// and kvm_arch_mmu_enable_log_dirty_pt_masked
 static void gstage_wp_range(struct kvm *kvm, gpa_t start, gpa_t end)
 {
 	int ret;
@@ -330,6 +458,7 @@ next:
 	}
 }
 
+// Used here by kvm_arch_commit_memory_region
 static void gstage_wp_memory_region(struct kvm *kvm, int slot)
 {
 	struct kvm_memslots *slots = kvm_memslots(kvm);
@@ -343,6 +472,8 @@ static void gstage_wp_memory_region(struct kvm *kvm, int slot)
 	kvm_flush_remote_tlbs(kvm);
 }
 
+
+// Used here by kvm_arch_prepare_memory_region
 int kvm_riscv_gstage_ioremap(struct kvm *kvm, gpa_t gpa,
 			     phys_addr_t hpa, unsigned long size,
 			     bool writable, bool in_atomic)
@@ -383,13 +514,10 @@ out:
 	return ret;
 }
 
-void kvm_riscv_gstage_iounmap(struct kvm *kvm, gpa_t gpa, unsigned long size)
-{
-	spin_lock(&kvm->mmu_lock);
-	gstage_unmap_range(kvm, gpa, size, false);
-	spin_unlock(&kvm->mmu_lock);
-}
+// not exported in checked places!! a/r/kvm/* and asm/include/*
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 void kvm_arch_mmu_enable_log_dirty_pt_masked(struct kvm *kvm,
 					     struct kvm_memory_slot *slot,
 					     gfn_t gfn_offset,
@@ -406,6 +534,8 @@ void kvm_arch_sync_dirty_log(struct kvm *kvm, struct kvm_memory_slot *memslot)
 {
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 void kvm_arch_flush_remote_tlbs_memslot(struct kvm *kvm,
 					const struct kvm_memory_slot *memslot)
 {
@@ -420,11 +550,15 @@ void kvm_arch_memslots_updated(struct kvm *kvm, u64 gen)
 {
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 void kvm_arch_flush_shadow_all(struct kvm *kvm)
 {
 	kvm_riscv_gstage_free_pgd(kvm);
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
 				   struct kvm_memory_slot *slot)
 {
@@ -436,6 +570,8 @@ void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
 	spin_unlock(&kvm->mmu_lock);
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 void kvm_arch_commit_memory_region(struct kvm *kvm,
 				struct kvm_memory_slot *old,
 				const struct kvm_memory_slot *new,
@@ -450,6 +586,9 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 		gstage_wp_memory_region(kvm, new->id);
 }
 
+// looks important
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 int kvm_arch_prepare_memory_region(struct kvm *kvm,
 				const struct kvm_memory_slot *old,
 				struct kvm_memory_slot *new,
@@ -547,6 +686,8 @@ out:
 	return ret;
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 bool kvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
 {
 	if (!kvm->arch.pgd)
@@ -558,6 +699,8 @@ bool kvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
 	return false;
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 bool kvm_set_spte_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 {
 	int ret;
@@ -578,6 +721,8 @@ bool kvm_set_spte_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 	return false;
 }
 
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 bool kvm_age_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 {
 	pte_t *ptep;
@@ -596,6 +741,9 @@ bool kvm_age_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 	return ptep_test_and_clear_young(NULL, 0, ptep);
 }
 
+
+// Cant find occurances (possibly is outside since is exported by
+// linux/kvm_host.h
 bool kvm_test_age_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 {
 	pte_t *ptep;
@@ -613,6 +761,12 @@ bool kvm_test_age_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 
 	return pte_young(*ptep);
 }
+
+// Copy page into public then ask sbi to do it
+// Called by k/vcpu_exit on page faults
+
+
+#ifdef CONFIG_HPT_AREA
 
 int kvm_riscv_gstage_map(struct kvm_vcpu *vcpu,
 			 struct kvm_memory_slot *memslot,
@@ -709,6 +863,106 @@ out_unlock:
 	return ret;
 }
 
+int kvm_riscv_gstage_map_old(struct kvm_vcpu *vcpu,
+			 struct kvm_memory_slot *memslot,
+			 gpa_t gpa, unsigned long hva, bool is_write)
+{
+	int ret;
+	kvm_pfn_t hfn;
+	bool writable;
+	short vma_pageshift;
+	gfn_t gfn = gpa >> PAGE_SHIFT;
+	struct vm_area_struct *vma;
+	struct kvm *kvm = vcpu->kvm;
+	struct kvm_mmu_memory_cache *pcache = &vcpu->arch.mmu_page_cache;
+	bool logging = (memslot->dirty_bitmap &&
+			!(memslot->flags & KVM_MEM_READONLY)) ? true : false;
+	unsigned long vma_pagesize, mmu_seq;
+
+	mmap_read_lock(current->mm);
+
+	vma = find_vma_intersection(current->mm, hva, hva + 1);
+	if (unlikely(!vma)) {
+		kvm_err("Failed to find VMA for hva 0x%lx\n", hva);
+		mmap_read_unlock(current->mm);
+		return -EFAULT;
+	}
+
+	if (is_vm_hugetlb_page(vma))
+		vma_pageshift = huge_page_shift(hstate_vma(vma));
+	else
+		vma_pageshift = PAGE_SHIFT;
+	vma_pagesize = 1ULL << vma_pageshift;
+	if (logging || (vma->vm_flags & VM_PFNMAP))
+		vma_pagesize = PAGE_SIZE;
+
+	if (vma_pagesize == PMD_SIZE || vma_pagesize == PGDIR_SIZE)
+		gfn = (gpa & huge_page_mask(hstate_vma(vma))) >> PAGE_SHIFT;
+
+	mmap_read_unlock(current->mm);
+
+	if (vma_pagesize != PGDIR_SIZE &&
+	    vma_pagesize != PMD_SIZE &&
+	    vma_pagesize != PAGE_SIZE) {
+		kvm_err("Invalid VMA page size 0x%lx\n", vma_pagesize);
+		return -EFAULT;
+	}
+
+	/* We need minimum second+third level pages */
+	ret = kvm_mmu_topup_memory_cache(pcache, gstage_pgd_levels);
+	if (ret) {
+		kvm_err("Failed to topup G-stage cache\n");
+		return ret;
+	}
+
+	mmu_seq = kvm->mmu_invalidate_seq;
+
+	hfn = gfn_to_pfn_prot(kvm, gfn, is_write, &writable);
+	if (hfn == KVM_PFN_ERR_HWPOISON) {
+		send_sig_mceerr(BUS_MCEERR_AR, (void __user *)hva,
+				vma_pageshift, current);
+		return 0;
+	}
+	if (is_error_noslot_pfn(hfn))
+		return -EFAULT;
+
+	/*
+	 * If logging is active then we allow writable pages only
+	 * for write faults.
+	 */
+	if (logging && !is_write)
+		writable = false;
+
+	spin_lock(&kvm->mmu_lock);
+
+	if (mmu_invalidate_retry(kvm, mmu_seq))
+		goto out_unlock;
+
+	if (writable) {
+		kvm_set_pfn_dirty(hfn);
+		mark_page_dirty(kvm, gfn);
+		ret = gstage_map_page(kvm, pcache, gpa, hfn << PAGE_SHIFT,
+				      vma_pagesize, false, true);
+	} else {
+		ret = gstage_map_page(kvm, pcache, gpa, hfn << PAGE_SHIFT,
+				      vma_pagesize, true, true);
+	}
+
+	if (ret)
+		kvm_err("Failed to map in G-stage\n");
+
+out_unlock:
+	spin_unlock(&kvm->mmu_lock);
+	kvm_set_pfn_accessed(hfn);
+	kvm_release_pfn_clean(hfn);
+	return ret;
+}
+
+#endif
+
+
+
+#ifdef CONFIG_HPT_AREA
 int kvm_riscv_gstage_alloc_pgd(struct kvm *kvm)
 {
 	struct page *pgd_page;
@@ -727,7 +981,38 @@ int kvm_riscv_gstage_alloc_pgd(struct kvm *kvm)
 
 	return 0;
 }
+#else
+// Called by k/vm.c during vm init
+int kvm_riscv_gstage_alloc_pgd(struct kvm *kvm)
+{
+	struct page *pgd_page;
 
+	if (kvm->arch.pgd != NULL) {
+		kvm_err("kvm_arch already initialized?\n");
+		return -EINVAL;
+	}
+
+	pgd_page = alloc_pages(GFP_KERNEL | __GFP_ZERO,
+				get_order(gstage_pgd_size));
+	if (!pgd_page)
+		return -ENOMEM;
+	kvm->arch.pgd = page_to_virt(pgd_page);
+	kvm->arch.pgd_phys = page_to_phys(pgd_page);
+
+	return 0;
+}
+#endif /* CONFIG_HPT_AREA */
+
+
+#ifdef CONFIG_HPT_AREA
+void kvm_riscv_gstage_free_pgd(struct kvm *kvm)
+{
+        return;
+
+}
+#else
+// Called here by kvm_arch_flush_shadow_all (wrapper)
+// Called by k/vm.c after vm init.
 void kvm_riscv_gstage_free_pgd(struct kvm *kvm)
 {
 	void *pgd = NULL;
@@ -744,6 +1029,7 @@ void kvm_riscv_gstage_free_pgd(struct kvm *kvm)
 	if (pgd)
 		free_pages((unsigned long)pgd, get_order(gstage_pgd_size));
 }
+#endif /* CONFIG_HPT_AREA */
 
 void kvm_riscv_gstage_update_hgatp(struct kvm_vcpu *vcpu)
 {
@@ -783,12 +1069,12 @@ skip_sv48x4_test:
 	kvm_riscv_local_hfence_gvma_all();
 #endif
 }
-
+// Easy
 unsigned long kvm_riscv_gstage_mode(void)
 {
 	return gstage_mode >> HGATP_MODE_SHIFT;
 }
-
+// Easy
 int kvm_riscv_gstage_gpa_bits(void)
 {
 	return gstage_gpa_bits;

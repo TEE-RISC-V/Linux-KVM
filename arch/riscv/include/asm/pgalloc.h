@@ -154,6 +154,8 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 		return NULL;
 
 	long error, value;
+
+	// First memset(0)
 	sbi_sm_ecall(&error, &value, SBI_EXT_SM_SET_PTE,
 		     SBI_EXT_SM_SET_PTE_CLEAR, __pa(pgd), 0,
 		     USER_PTRS_PER_PGD * sizeof(pgd_t), 0, 0);
@@ -163,6 +165,8 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 		while (1) {
 		}
 	}
+
+	// Then memcpy
 	sbi_sm_ecall(&error, &value, SBI_EXT_SM_SET_PTE,
 		     SBI_EXT_SM_SET_PTE_MEMCPY, __pa(pgd + USER_PTRS_PER_PGD),
 		     __pa(init_mm.pgd + USER_PTRS_PER_PGD),
@@ -198,6 +202,7 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 #endif /* CONFIG_HPT_AREA */
 
 #ifdef CONFIG_HPT_AREA
+// Helper Functions for HPT
 static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
 {
 	struct page *page;

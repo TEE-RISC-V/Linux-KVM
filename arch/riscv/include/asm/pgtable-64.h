@@ -163,6 +163,7 @@ static inline int pud_user(pud_t pud)
 }
 
 #ifdef CONFIG_HPT_AREA
+// The Security Moniter edits the pte
 static inline void set_pud(pud_t *pudp, pud_t pud)
 {
 	long error, value;

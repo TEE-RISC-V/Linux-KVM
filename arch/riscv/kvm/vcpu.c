@@ -933,6 +933,7 @@ static void noinstr kvm_riscv_vcpu_enter_exit(struct kvm_vcpu *vcpu)
 {
 	guest_state_enter_irqoff();
 	// __kvm_riscv_switch_to(&vcpu->arch);
+	// Run through the SM
 	__kvm_riscv_sm_resume_cpu(&vcpu->arch, vcpu->vcpu_id);
 
 	vcpu->arch.last_exit_cpu = vcpu->cpu;
@@ -1039,6 +1040,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 		guest_timing_enter_irqoff();
 
+		// Let the SM know about this vcpu
 		if (unlikely(!ran_before)) {
 			__kvm_riscv_sm_create_cpu(&vcpu->arch, vcpu->vcpu_id);
 			ran_before = true;

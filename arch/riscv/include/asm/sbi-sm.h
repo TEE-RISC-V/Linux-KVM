@@ -5,17 +5,25 @@
 
 #define SBI_EXT_SM 0x8000000
 
+// Flags to use in sbi_sm_ecall
+//
 // sbi_ext_sm_fid
 #define SBI_EXT_SM_SET_SHARED 0
 #define SBI_EXT_SM_BITMAP_AND_HPT_INIT 1
 #define SBI_EXT_SM_SET_PTE 2
 #define SBI_EXT_SM_MONITOR_INIT 3
-#define SBI_EXT_SM_REVERSE_MAP_INIT 4
+#define SBI_EXT_SM_GSTAGE_MM 4
+
 
 // sbi_ext_sm_set_pte_sub_fid
 #define SBI_EXT_SM_SET_PTE_CLEAR 0
 #define SBI_EXT_SM_SET_PTE_MEMCPY 1
 #define SBI_EXT_SM_SET_PTE_SET_ONE 2
+
+// sbi_ext_sm_gstage_mm_sub_fid
+#define SBI_EXT_SM_GSTAGE_MM_SET_PTE 0
+
+
 
 #define sbi_sm_ecall(error, value, fid, arg0, arg1, arg2, arg3, arg4, arg5)  \
 	{                                                                    \

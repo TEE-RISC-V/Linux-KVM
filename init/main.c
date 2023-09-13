@@ -998,11 +998,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	vfs_caches_init_early();
 	sort_main_extable();
 	trap_init();
-
-	#ifdef CONFIG_HPT_AREA
-	alloc_hpt_area_and_bitmap();
-	#endif /* CONFIG_HPT_AREA */
-
 	mm_init();
 
 	#ifdef CONFIG_HPT_AREA

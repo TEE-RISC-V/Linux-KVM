@@ -12,7 +12,9 @@
 #define SBI_EXT_SM_BITMAP_AND_HPT_INIT 1
 #define SBI_EXT_SM_SET_PTE 2
 #define SBI_EXT_SM_MONITOR_INIT 3
-#define SBI_EXT_SM_GSTAGE_MM 4
+#define SBI_EXT_SM_REVERSE_MAP_INIT 4
+#define SBI_EXT_SM_PREPARE_MMIO 5
+#define SBI_EXT_SM_GSTAGE_MM 6
 
 
 // sbi_ext_sm_set_pte_sub_fid

@@ -457,6 +457,15 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	struct kvm_cpu_trap utrap = { 0 };
 	struct kvm_cpu_context *ct = &vcpu->arch.guest_context;
 
+	if (!vcpu->arch.expecting_mmio) {
+		vcpu->arch.expecting_mmio = true;
+		__kvm_riscv_sm_prepare_mmio(vcpu->vcpu_id);
+		
+		return 0;
+	}
+
+	vcpu->arch.expecting_mmio = false;
+
 	/* Determine trapped instruction */
 	if (htinst & 0x1) {
 		/*
@@ -470,8 +479,12 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		 * Bit[0] == 0 implies trapped instruction value is
 		 * zero or special value.
 		 */
-		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
-						  &utrap);
+		// insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
+		// 				  &utrap);
+
+		// New method of reading the instruction: the hypervisor will read it instead
+		insn = ct->a1;
+
 		if (utrap.scause) {
 			/* Redirect trap if we failed to read instruction */
 			utrap.sepc = ct->sepc;
@@ -583,6 +596,15 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	struct kvm_cpu_trap utrap = { 0 };
 	struct kvm_cpu_context *ct = &vcpu->arch.guest_context;
 
+	if (!vcpu->arch.expecting_mmio) {
+		vcpu->arch.expecting_mmio = true;
+		__kvm_riscv_sm_prepare_mmio(vcpu->vcpu_id);
+		
+		return 0;
+	}
+
+	vcpu->arch.expecting_mmio = false;
+
 	/* Determine trapped instruction */
 	if (htinst & 0x1) {
 		/*
@@ -596,8 +618,12 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		 * Bit[0] == 0 implies trapped instruction value is
 		 * zero or special value.
 		 */
-		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
-						  &utrap);
+		// insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
+		// 				  &utrap);
+
+		// New method of reading the instruction: the hypervisor will read it instead
+		insn = ct->a1;
+
 		if (utrap.scause) {
 			/* Redirect trap if we failed to read instruction */
 			utrap.sepc = ct->sepc;
@@ -607,7 +633,7 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		insn_len = INSN_LEN(insn);
 	}
 
-	data = GET_RS2(insn, &vcpu->arch.guest_context);
+	data = vcpu->arch.guest_context.a0;
 	data8 = data16 = data32 = data64 = data;
 
 	if ((insn & INSN_MASK_SW) == INSN_MATCH_SW) {
@@ -623,19 +649,15 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
 #ifdef CONFIG_64BIT
 	} else if ((insn & INSN_MASK_C_SD) == INSN_MATCH_C_SD) {
 		len = 8;
-		data64 = GET_RS2S(insn, &vcpu->arch.guest_context);
 	} else if ((insn & INSN_MASK_C_SDSP) == INSN_MATCH_C_SDSP &&
 		   ((insn >> SH_RD) & 0x1f)) {
 		len = 8;
-		data64 = GET_RS2C(insn, &vcpu->arch.guest_context);
 #endif
 	} else if ((insn & INSN_MASK_C_SW) == INSN_MATCH_C_SW) {
 		len = 4;
-		data32 = GET_RS2S(insn, &vcpu->arch.guest_context);
 	} else if ((insn & INSN_MASK_C_SWSP) == INSN_MATCH_C_SWSP &&
 		   ((insn >> SH_RD) & 0x1f)) {
 		len = 4;
-		data32 = GET_RS2C(insn, &vcpu->arch.guest_context);
 	} else {
 		return -EOPNOTSUPP;
 	}
